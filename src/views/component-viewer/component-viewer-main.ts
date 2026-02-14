@@ -301,15 +301,18 @@ export class ComponentViewer {
         const sessionId = activeSession?.session.id; // keep stable for current update
         // Filter for instances that belong to active session.
         const activeInstances = this._instances.filter(instance => instance.sessionId === sessionId);
-        for (const instance of activeInstances) {
-            this._instanceUpdateCounter++;
-            componentViewerLogger.debug(`Updating Component Viewer Instance #${this._instanceUpdateCounter} due to '${updateReason}'`);
-
+        const guiTrees: (ScvdGuiInterface[] | undefined)[] = await Promise.all(activeInstances.map(async (instance) => {
+            const instanceUpdateId = this._instanceUpdateCounter++;
+            componentViewerLogger.debug(`Updating Component Viewer Instance #${instanceUpdateId} due to '${updateReason}'`);
             // Check instance's lock state, skip update if locked
             if (!instance.lockState) {
                 await instance.componentViewerInstance.update();
             }
-            const guiTree = instance.componentViewerInstance.getGuiTree();
+            return instance.componentViewerInstance.getGuiTree();
+        }));
+        let index = 0;
+        for (const instance of activeInstances) {
+            const guiTree = guiTrees[index++];
             if (guiTree) {
                 roots.push(...guiTree);
                 // If instance is locked, set isLocked flag to true for root nodes
